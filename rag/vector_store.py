@@ -1,6 +1,9 @@
 import os
 import glob
+import logging
 from typing import List, Dict, Any
+
+logging.getLogger("pypdf").setLevel(logging.ERROR)
 
 try:
     from pypdf import PdfReader
