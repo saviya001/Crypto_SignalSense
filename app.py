@@ -120,6 +120,21 @@ st.markdown("""
         font-weight: 800;
     }
 
+    /* Analysis Step Card */
+    .analysis-step-card {
+        background: rgba(30, 41, 59, 0.5);
+        border-left: 4px solid #38bdf8;
+        border-radius: 8px;
+        padding: 14px 18px;
+        margin-bottom: 12px;
+    }
+    .analysis-step-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #38bdf8;
+        margin-bottom: 4px;
+    }
+
     /* RAG Pills & Tags */
     .rag-pill {
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
@@ -185,7 +200,7 @@ st.warning("⚠️ **Academic & Educational Disclaimer:** Signals, Entry, TP, an
 
 st.markdown("---")
 
-# Replacement 1: Select Cryptocurrency Asset -> Select Coin
+# Select Coin Row
 st.markdown("### 🪙 Select Coin")
 
 cols_coin = st.columns([1, 1, 1, 1, 1])
@@ -264,7 +279,7 @@ if analyze_clicked or "last_result" in st.session_state:
 
     st.markdown("---")
 
-    # Replacement 2: Synthesized Signal Card — BTC -> Signal Summary — BTC
+    # Signal Summary Card
     st.markdown(f"## 🎯 Signal Summary — {result['symbol']}")
     
     action = signal.get("action", "HOLD")
@@ -318,18 +333,15 @@ if analyze_clicked or "last_result" in st.session_state:
             """, unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Replacement 3: Strategic AI Rationale -> Reasoning
         st.markdown("##### 💡 Reasoning:")
         st.info(signal.get("reasoning", ""))
         
-        # Replacement 4: Reflection & Self-Critique Verification -> Cross-Check (News vs Chart)
         st.markdown("##### 🛡️ Cross-Check (News vs Chart):")
         st.success(signal.get("reflection_notes", ""))
 
     st.markdown("---")
 
-    # Replacement 5 & 6: Interactive OHLC Candlestick Chart -> Price Chart & Worker Agent Findings -> Agent Outputs & News Headlines
+    # Clean 3 Tabs Layout
     tab1, tab2, tab3 = st.tabs([
         "📈 Price Chart", 
         "📰 Agent Outputs & News Headlines", 
@@ -337,7 +349,7 @@ if analyze_clicked or "last_result" in st.session_state:
     ])
 
     with tab1:
-        st.markdown("### 🕯️ Price Chart")
+        st.markdown("### 🕯️ Price Chart & Agent Visual Markers")
         df_ohlc = fetch_ohlc_data(result['symbol'], limit=50)
         
         if not df_ohlc.empty:
@@ -353,19 +365,19 @@ if analyze_clicked or "last_result" in st.session_state:
 
             fig = go.Figure()
 
-            # Candlesticks
+            # 1. Candlesticks
             fig.add_trace(go.Candlestick(
                 x=df_ohlc['date_str'],
                 open=df_ohlc['open'],
                 high=df_ohlc['high'],
                 low=df_ohlc['low'],
                 close=df_ohlc['close'],
-                name='Candles',
+                name='Price Candles',
                 increasing_line_color='#10b981',
                 decreasing_line_color='#ef4444'
             ))
 
-            # SMA 20 Overlay
+            # 2. SMA 20 Overlay Curve
             fig.add_trace(go.Scatter(
                 x=df_ohlc['date_str'],
                 y=df_ohlc['sma_20'],
@@ -378,11 +390,27 @@ if analyze_clicked or "last_result" in st.session_state:
             sup_val = tech.get("metrics", {}).get("support", df_ohlc['low'].min())
             res_val = tech.get("metrics", {}).get("resistance", df_ohlc['high'].max())
 
-            fig.add_hline(y=sup_val, line_dash="dash", line_color="#10b981", annotation_text=f"Support (${sup_val:,.2f})", annotation_position="bottom right")
-            fig.add_hline(y=res_val, line_dash="dash", line_color="#ef4444", annotation_text=f"Resistance (${res_val:,.2f})", annotation_position="top right")
+            entry_p = signal.get('entry_price', p_curr)
+            tp_p = signal.get('take_profit', res_val)
+            sl_p = signal.get('stop_loss', sup_val)
 
-            y_min = df_ohlc['low'].min() * 0.995
-            y_max = df_ohlc['high'].max() * 1.005
+            # 3. Key Technical Levels Horizontals
+            fig.add_hline(y=sup_val, line_dash="dash", line_color="#059669", annotation_text=f"Support (${sup_val:,.2f})", annotation_position="bottom right")
+            fig.add_hline(y=res_val, line_dash="dash", line_color="#dc2626", annotation_text=f"Resistance (${res_val:,.2f})", annotation_position="top right")
+
+            # 4. Agent Synthesized Trade Target Lines (Entry, TP, SL)
+            if entry_p > 0:
+                fig.add_hline(y=entry_p, line_dash="solid", line_color="#38bdf8", annotation_text=f"🟢 ENTRY (${entry_p:,.2f})", annotation_position="top left")
+            if tp_p > 0:
+                fig.add_hline(y=tp_p, line_dash="dot", line_color="#10b981", annotation_text=f"🎯 TAKE PROFIT (${tp_p:,.2f})", annotation_position="top left")
+            if sl_p > 0:
+                fig.add_hline(y=sl_p, line_dash="dot", line_color="#ef4444", annotation_text=f"🛑 STOP LOSS (${sl_p:,.2f})", annotation_position="bottom left")
+
+            # Calculate dynamic Y-axis bounds encompassing all lines
+            all_vals = [df_ohlc['low'].min(), df_ohlc['high'].max(), sup_val, res_val, entry_p, tp_p, sl_p]
+            valid_vals = [v for v in all_vals if v > 0]
+            y_min = min(valid_vals) * 0.995
+            y_max = max(valid_vals) * 1.005
 
             fig.update_layout(
                 template="plotly_dark",
@@ -396,7 +424,37 @@ if analyze_clicked or "last_result" in st.session_state:
             )
 
             st.plotly_chart(fig, use_container_width=True)
-            st.caption(f"📍 Current Price: **${p_curr:,.2f}** | Support: **${sup_val:,.2f}** | Resistance: **${res_val:,.2f}** | SMA20 Overlay: **${df_ohlc['sma_20'].iloc[-1]:,.2f}**")
+            st.caption(f"📍 Current Price: **${p_curr:,.2f}** | Support: **${sup_val:,.2f}** | Resistance: **${res_val:,.2f}** | SMA20: **${df_ohlc['sma_20'].iloc[-1]:,.2f}**")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # How Technical Agent Analyzed This Chart (Step-by-Step Breakdown)
+        st.markdown("### 📍 How Technical Agent Analyzed This Chart")
+        
+        rsi_val = tech.get("metrics", {}).get("rsi", 50)
+        trend = tech.get("metrics", {}).get("trend_bias", "NEUTRAL")
+        
+        st.markdown(f"""
+        <div class="analysis-step-card">
+            <div class="analysis-step-title">1. Trend & Moving Average Check (SMA 20)</div>
+            <div>Current price (<b>${p_curr:,.2f}</b>) is evaluated relative to the 20-period Simple Moving Average (<b>${df_ohlc['sma_20'].iloc[-1]:,.2f}</b>). Market trend bias identified as <b>{trend}</b>.</div>
+        </div>
+        
+        <div class="analysis-step-card">
+            <div class="analysis-step-title">2. Support & Resistance Boundary Mapping</div>
+            <div>Key reaction zones calculated from recent high/low price swings: Nearest Support at <b>${sup_val:,.2f}</b> and Resistance at <b>${res_val:,.2f}</b>.</div>
+        </div>
+        
+        <div class="analysis-step-card">
+            <div class="analysis-step-title">3. Momentum & RSI (14) Oscillator Assessment</div>
+            <div>Relative Strength Index (RSI 14) is at <b>{rsi_val:.1f}</b>. Evaluated for overbought (>70) or oversold (<30) momentum exhaustion.</div>
+        </div>
+        
+        <div class="analysis-step-card">
+            <div class="analysis-step-title">4. Risk Engine Level Derivation</div>
+            <div>Derived Entry Target (<b>${entry_p:,.2f}</b>), Take Profit (<b>${tp_p:,.2f}</b>), and Stop Loss (<b>${sl_p:,.2f}</b>) enforcing a minimum <b>{signal.get('risk_reward_ratio', 2.0):.2f}:1</b> Risk-to-Reward ratio.</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     with tab2:
         st.markdown("### 📊 Agent Outputs & News Headlines")
