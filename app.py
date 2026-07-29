@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import json
-import time
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -12,13 +11,13 @@ load_dotenv()
 
 # Page configuration
 st.set_page_config(
-    page_title="Crypto SignalSense — Multi-Agent AI Trading Intelligence",
+    page_title="Crypto SignalSense — Multi-Agent AI Trading System",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Next-Level CSS (Google Fonts + Cyberpunk Glassmorphism + Contrast Signal Badges)
+# Custom Next-Level CSS (Google Fonts + Cyberpunk Glassmorphism + High Contrast Signal Badges)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
@@ -114,7 +113,6 @@ st.markdown("""
         color: #94a3b8;
         text-transform: uppercase;
         letter-spacing: 1px;
-
         margin-bottom: 6px;
     }
     .dashboard-stat-val {
@@ -134,15 +132,6 @@ st.markdown("""
         display: inline-block;
         margin-right: 8px;
         margin-bottom: 8px;
-    }
-
-    /* Step Workflow Node */
-    .workflow-step {
-        background: rgba(30, 41, 59, 0.7);
-        border-left: 4px solid #6366f1;
-        padding: 12px 16px;
-        border-radius: 8px;
-        margin-bottom: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -177,28 +166,14 @@ with st.sidebar:
     openrouter_api_key = st.text_input("🔑 OpenRouter API Key (Signal Agent)", value=openrouter_default, type="password", help="Required for SignalAgent Deep Reasoning LLM calls")
     
     st.markdown("---")
-    st.markdown("### 🧠 Live Multi-Agent Status")
-    
-    # Live Status Indicators
-    status_router = st.empty()
-    status_news = st.empty()
-    status_tech = st.empty()
-    status_signal = st.empty()
-
-    if "agent_status" not in st.session_state:
-        st.session_state["agent_status"] = {
-            "router": "⚪ RouterAgent: Standby",
-            "news": "⚪ NewsAgent: Standby",
-            "tech": "⚪ TechnicalAgent: Standby",
-            "signal": "⚪ SignalAgent: Standby"
-        }
-
-    st_map = st.session_state["agent_status"]
-    status_router.markdown(f"- {st_map['router']}")
-    status_news.markdown(f"- {st_map['news']}")
-    status_tech.markdown(f"- {st_map['tech']}")
-    status_signal.markdown(f"- {st_map['signal']}")
-    
+    st.markdown("### 🧠 Multi-Agent Architecture")
+    st.markdown("""
+    - 🟢 **RouterAgent**: Message Dispatcher
+    - 🔵 **NewsAgent**: Sentiment AI (*Groq Llama 3.1*)
+    - 🟣 **TechnicalAgent**: Chart Math AI (*Groq Llama 3.1*)
+    - 🟡 **SignalAgent**: Strategy Brain (*OpenRouter DeepSeek*)
+    - 📚 **RAG Engine**: Vector Store (22 Strategy PDFs/Docs)
+    """)
     st.markdown("---")
     st.caption("IT41043 — Intelligent Systems | Horizon Campus")
 
@@ -277,14 +252,6 @@ if analyze_clicked or "last_result" in st.session_state:
         if not groq_api_key or not openrouter_api_key:
             st.error("⚠️ **API Keys Required!** Both `GROQ_API_KEY` and `OPENROUTER_API_KEY` are mandatory to execute the multi-agent AI system. Please enter your API keys in the sidebar or configure `.streamlit/secrets.toml`.")
             st.stop()
-
-        # Update Live Agent Status Indicators
-        st.session_state["agent_status"] = {
-            "router": "⏳ RouterAgent: Dispatching Messages...",
-            "news": "⏳ NewsAgent: Analyzing Sentiment...",
-            "tech": "⏳ TechnicalAgent: Computing Indicators...",
-            "signal": "⏳ SignalAgent: Synthesizing RAG Context..."
-        }
         
         with st.spinner(f"🤖 Multi-Agent Network processing {selected_coin} market data..."):
             news_agent = NewsAgent(api_key=groq_api_key)
@@ -297,13 +264,6 @@ if analyze_clicked or "last_result" in st.session_state:
             result = router.run_analysis(selected_coin)
             st.session_state["last_result"] = result
             st.session_state["last_coin"] = selected_coin
-
-            st.session_state["agent_status"] = {
-                "router": "✅ RouterAgent: Complete",
-                "news": "✅ NewsAgent: Sentiment Done",
-                "tech": "✅ TechnicalAgent: Indicators Done",
-                "signal": "✅ SignalAgent: Signal Synthesized"
-            }
     else:
         result = st.session_state["last_result"]
 
@@ -323,7 +283,6 @@ if analyze_clicked or "last_result" in st.session_state:
     c_card1, c_card2 = st.columns([2, 3])
     
     with c_card1:
-        # Prominent Confidence Score Display directly in badge header
         st.markdown(f'<div class="{badge_class}">{action} — {confidence_pct:.0f}% Confidence</div>', unsafe_allow_html=True)
         st.write("")
         
@@ -376,12 +335,11 @@ if analyze_clicked or "last_result" in st.session_state:
 
     st.markdown("---")
 
-    # 2. Structured Tabs Organization (Tabs 1 to 4)
-    tab1, tab2, tab3, tab4 = st.tabs([
+    # 2. Clean 3 Tabs Layout (Removed Agent Protocol Logs tab & Sidebar live status)
+    tab1, tab2, tab3 = st.tabs([
         "📈 Price Action Candlestick Chart", 
         "📰 Market News & Worker Findings", 
-        "📚 RAG Strategy Vectors", 
-        "💬 Agent Protocol Logs"
+        "📚 RAG Strategy Vectors"
     ])
 
     with tab1:
@@ -477,21 +435,6 @@ if analyze_clicked or "last_result" in st.session_state:
             for src in sources:
                 st.markdown(f"#### 📄 {src['title']} (`{src['source']}`)")
                 st.code(src["content"][:400] + "...", language="markdown")
-
-    with tab4:
-        st.markdown("### 💬 Agent-to-Agent Message Protocol Trace")
-        st.caption("Demonstrates decoupled JSON message passing between Router, Worker Agents, and Signal Strategist.")
-        for idx, msg in enumerate(result.get("message_flow", []), 1):
-            sender = msg['sender'].upper()
-            receiver = msg['receiver'].upper()
-            mtype = msg['message_type']
-            
-            st.markdown(f"""
-            <div class="workflow-step">
-                <b>Step {idx}:</b> <code>{sender}</code> ➔ <code>{receiver}</code> | Type: <code>{mtype}</code>
-            </div>
-            """, unsafe_allow_html=True)
-            st.json(msg["payload"])
 
 # Educational Disclaimer Footer
 st.markdown("---")
