@@ -2,6 +2,8 @@ import streamlit as st
 import os
 import json
 import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -9,7 +11,7 @@ load_dotenv()
 
 # Page configuration
 st.set_page_config(
-    page_title="Crypto SignalSense — Next-Gen AI Trading Intelligence",
+    page_title="Crypto SignalSense — Multi-Agent AI Trading System",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -213,16 +215,13 @@ if "selected_coin" not in st.session_state:
 for i, coin in enumerate(coins):
     with cols_coin[i]:
         pinfo = fetch_coin_price(coin)
-        change_col = "#10b981" if pinfo["change_24h"] >= 0 else "#ef4444"
         symbol_prefix = "+" if pinfo["change_24h"] >= 0 else ""
-        
-        btn_label = f"{coin}\n${pinfo['price']:,.2f}\n{symbol_prefix}{pinfo['change_24h']:.2f}%"
-        if st.button(f"{coin} (${pinfo['price']:,.2f})", key=f"btn_{coin}", use_container_width=True):
+        if st.button(f"{coin} (${pinfo['price']:,.2f})\n{symbol_prefix}{pinfo['change_24h']:.2f}%", key=f"btn_{coin}", use_container_width=True):
             st.session_state["selected_coin"] = coin
 
 selected_coin = st.session_state["selected_coin"]
 
-st.info(f"Selected Target Asset: **{selected_coin}**")
+st.info(f"Target Crypto Asset: **{selected_coin}**")
 
 col_action = st.columns([1, 2, 1])
 with col_action[1]:
@@ -316,22 +315,77 @@ if analyze_clicked or "last_result" in st.session_state:
 
     st.markdown("---")
 
-    # 2. Price Action Chart & Worker Agents Row
-    st.markdown("## 📊 Live Market Data & Worker Agent Findings")
+    # 2. Interactive Candlestick Chart (Plotly) & Worker Agents
+    st.markdown("## 📊 Candlestick Price Action & Worker Agent Findings")
     
     col_chart, col_workers = st.columns([3, 2])
     
     with col_chart:
-        st.markdown("#### 📈 Price Action Chart (Hourly Candles)")
-        df_ohlc = fetch_ohlc_data(result['symbol'], limit=40)
+        st.markdown("#### 🕯️ Interactive OHLC Candlestick Chart")
+        df_ohlc = fetch_ohlc_data(result['symbol'], limit=50)
+        
         if not df_ohlc.empty:
-            chart_df = df_ohlc.set_index('timestamp')[['close', 'open', 'high', 'low']]
-            st.line_chart(chart_df[['close']], color="#38bdf8", use_container_width=True)
-            
-            p_curr = tech.get("metrics", {}).get("current_price", 0)
-            sup = tech.get("metrics", {}).get("support", 0)
-            res = tech.get("metrics", {}).get("resistance", 0)
-            st.caption(f"📍 Current Price: **${p_curr:,.2f}** | Support: **${sup:,.2f}** | Resistance: **${res:,.2f}**")
+            # High Priority Fix 2: Convert raw Unix timestamps into human-readable datetime strings
+            if 'timestamp' in df_ohlc.columns:
+                if isinstance(df_ohlc['timestamp'].iloc[0], (int, float, np.integer, np.floating)):
+                    df_ohlc['date_str'] = pd.to_datetime(df_ohlc['timestamp'], unit='ms').dt.strftime('%m-%d %H:%M')
+                else:
+                    df_ohlc['date_str'] = df_ohlc['timestamp'].astype(str)
+            else:
+                df_ohlc['date_str'] = [f"T-{i}" for i in range(len(df_ohlc))]
+
+            # Compute SMA 20 for indicator overlay on candlestick chart
+            df_ohlc['sma_20'] = df_ohlc['close'].rolling(window=20, min_periods=1).mean()
+
+            # High Priority Fix 1: Plotly Candlestick Chart (open, high, low, close)
+            fig = go.Figure()
+
+            # Candlesticks
+            fig.add_trace(go.Candlestick(
+                x=df_ohlc['date_str'],
+                open=df_ohlc['open'],
+                high=df_ohlc['high'],
+                low=df_ohlc['low'],
+                close=df_ohlc['close'],
+                name='Candles',
+                increasing_line_color='#10b981',
+                decreasing_line_color='#ef4444'
+            ))
+
+            # Technical Indicator Overlay: SMA 20 Line
+            fig.add_trace(go.Scatter(
+                x=df_ohlc['date_str'],
+                y=df_ohlc['sma_20'],
+                mode='lines',
+                name='SMA (20)',
+                line=dict(color='#38bdf8', width=2)
+            ))
+
+            # Technical Indicator Overlay: Support & Resistance horizontal lines
+            p_curr = tech.get("metrics", {}).get("current_price", df_ohlc['close'].iloc[-1])
+            sup_val = tech.get("metrics", {}).get("support", df_ohlc['low'].min())
+            res_val = tech.get("metrics", {}).get("resistance", df_ohlc['high'].max())
+
+            fig.add_hline(y=sup_val, line_dash="dash", line_color="#10b981", annotation_text=f"Support (${sup_val:,.2f})", annotation_position="bottom right")
+            fig.add_hline(y=res_val, line_dash="dash", line_color="#ef4444", annotation_text=f"Resistance (${res_val:,.2f})", annotation_position="top right")
+
+            # High Priority Fix 3: Dynamic Y-Axis Auto-Scaling with padding
+            y_min = df_ohlc['low'].min() * 0.995
+            y_max = df_ohlc['high'].max() * 1.005
+
+            fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(15, 23, 42, 0.7)",
+                plot_bgcolor="rgba(15, 23, 42, 0.7)",
+                margin=dict(l=20, r=20, t=30, b=20),
+                xaxis_rangeslider_visible=False,
+                yaxis=dict(range=[y_min, y_max], title="Price (USD)", gridcolor="rgba(255, 255, 255, 0.05)"),
+                xaxis=dict(title="Time (UTC)", gridcolor="rgba(255, 255, 255, 0.05)", type='category'),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+            st.caption(f"📍 Current Price: **${p_curr:,.2f}** | Support: **${sup_val:,.2f}** | Resistance: **${res_val:,.2f}** | SMA20 Overlay: **${df_ohlc['sma_20'].iloc[-1]:,.2f}**")
 
     with col_workers:
         st.markdown("#### 📊 Technical Agent")
@@ -343,6 +397,10 @@ if analyze_clicked or "last_result" in st.session_state:
         sent_tag = news.get("sentiment", "NEUTRAL")
         st.markdown(f"**Sentiment Tag:** `{sent_tag}` | **Confidence:** `{news.get('confidence', 0.8)*100:.0f}%`")
         st.write(news.get("summary", ""))
+        
+        with st.expander("View News Headlines Analyzed"):
+            for h in news.get("headlines", []):
+                st.markdown(f"- {h}")
 
     st.markdown("---")
 
