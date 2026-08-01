@@ -120,7 +120,7 @@ pip install -r requirements.txt
 ```
 
 ### 2. Configure Environment Variables
-Copy `.env.example` to `.env` or populate `.streamlit/secrets.toml`:
+Copy `.env` 
 ```env
 GROQ_API_KEY=your_groq_api_key
 OPENROUTER_API_KEY=your_openrouter_api_key
@@ -135,7 +135,7 @@ streamlit run app.py
 ---
 
 ## 🌐 Live Streamlit Deployment
-- **Live Streamlit Cloud URL:** `https://crypto-signalsense.streamlit.app` *(Update with live deployed URL)*
+- **Live Streamlit Cloud URL:** `https://crypto-signalsense.streamlit.app/` 
 
 ---
 
